@@ -154,13 +154,18 @@ int main()
 			finishDate = GetNextDate( finishDate );
 		}
 		//删除从finishDate到today的数据
-		string tmpStr = Global_outPath;
-		tmpStr.append( Global_main );
-		ClearData( tmpStr, finishDate );
-		tmpStr = Global_outPath;
-		tmpStr.append( Global_contract );
-		ClearData( tmpStr, finishDate );
+		cout << "是否删除" << finishDate << "日期之后的数据?(Y/N)" << endl;
+		string delStr;
+		cin >> delStr;
+		if ( delStr.compare("Y") || ( delStr.compare("y") ) ){
+			string tmpStr = Global_outPath;
+			tmpStr.append( Global_main );
+			ClearData( tmpStr, finishDate );
+			tmpStr = Global_outPath;
+			tmpStr.append( Global_contract );
+			ClearData( tmpStr, finishDate );
 
+		}
 
 	}else
 	dateIn.close();
@@ -170,18 +175,16 @@ int main()
 	string tickLogPath = Global_outPath;
 	tickLogPath.append(Global_log);
 	tickLogPath.append( "tick_miss_log" );
-	tickLog.open(tickLogPath);
-	tickLog.close();
+
 	tickLog.open( tickLogPath, ios::app);
 	
 	ofstream dataLog;
 	string dataLogPath = Global_outPath;
 	dataLogPath.append(Global_log);
 	dataLogPath.append( "tick_error_log" );
-	dataLog.open(dataLogPath);
-	dataLog.close();
-	dataLog.open(dataLogPath, ios::app);
 
+	dataLog.open(dataLogPath, ios::app);
+	
 
 
 	//计算从finishDate到today的所有数据
@@ -197,6 +200,16 @@ int main()
 			endTime = finishDate;
 			//处理数据
 				for ( int i = 0; i < futureNum; i++ ){
+					if ( futureCode[i].compare("IF") ){
+						pData->SetTransferPeriod( 2 );
+						pData->SetTransferTime( 1, 915, 1130 );
+						pData->SetTransferTime( 2, 1300, 1515 );
+					}else{
+						pData->SetTransferPeriod( 3 );
+						pData->SetTransferTime( 1, 900, 1015 );
+						pData->SetTransferTime( 2, 1030, 1130 );
+						pData->SetTransferTime( 3, 1330, 1500 );
+					}
 					//对于每一种期货，从\info\Xcthisc文件中读取目标时间内的期货合约
 					FutureProcess( pData,futureExchange[i], futureCode[i], beginTime, endTime, dataLog, tickLog );
 				}
@@ -263,7 +276,7 @@ int main()
 		timeOut.close();
 		ofstream dateOut;
 		dateOut.open(datePath);
-		dateOut << finishDate << endl;
+		dateOut << endl << finishDate ;
 		dateOut.close();
 		finishDate = GetNextDate( finishDate );
 		
@@ -319,13 +332,19 @@ int main()
 	memset( tickTag, 0, sizeof(int)*50 );
 	KData *tickData[50];
 	for ( int i = 0; i < futureNum; i++ ){
-		tickData[i] = new KData();
-		tickData[i]->SetTransferPeriod( 4 );
-		tickData[i]->SetTransferTime( 1, 900, 1015 );
-		tickData[i]->SetTransferTime( 2, 1030, 1130 );
-		tickData[i]->SetTransferTime( 3, 1330, 1500 );
-		tickData[i]->SetTransferTime( 4, 1600, 2200 );
-
+		if ( futureCode[i].compare("IF") ){
+			tickData[i] = new KData();
+			tickData[i]->SetTransferPeriod( 2 );
+			tickData[i]->SetTransferTime( 1, 915, 1130 );
+			tickData[i]->SetTransferTime( 2, 1300, 1515 );
+		}else{
+			tickData[i] = new KData();
+			tickData[i]->SetTransferPeriod( 3 );
+			tickData[i]->SetTransferTime( 1, 900, 1015 );
+			tickData[i]->SetTransferTime( 2, 1030, 1130 );
+			tickData[i]->SetTransferTime( 3, 1330, 1500 );
+			//tickData[i]->SetTransferTime( 4, 1600, 2200 );
+		}
 		tickData[i]->SetKLineNum( 6 );
 		tickData[i]->SetKLine( 1, -1 );
 		tickData[i]->SetKLine( 2, 1 );
@@ -382,10 +401,6 @@ int main()
 	
 
 		pData->DeleteData();
-	ofstream dateOut;
-	dateOut.open( datePath, ios::app );
-	dateOut << endl;
-	dateOut << today;
 	dateOut.close();
 
 	dataLog.close();
@@ -825,20 +840,49 @@ int GetNextDate( int date )
 	int year = date / 10000;
 	int month = ( date / 100 ) % 100;
 	int day = date % 100;
-	if ( day < 31 ){
-		day++;
-	}else{
-		day = 1;
-		if ( month < 12 ){
-			month++;
-			day = 1;
+
+	switch (day){
+	case 28:
+		if ( month != 2 ){
+			day++;
+		}else if ( year % 4 == 0 ){
+			day++;
 		}else{
-			year++;
-			month = 1;
 			day = 1;
+			month++;
 		}
+		break;
+	case 29:
+		if ( month == 2 ){
+			day = 1;
+			month++;
+		}else{
+			day++;
+		}
+		break;
+	case 30:
+		if ( month == 4 || month == 6 || month == 9 || month == 11 ){
+			day = 1;
+			month++;
+		}else{
+			day++;
+		}
+		break;
+	case 31:
+		day = 1;
+		month++;
+		break;
+	default:
+		day++;
+		break;
+	}//switch
+
+	if ( month > 12 ){
+		month = 1;
+		year++;
 	}
-	date = year * 10000 + month * 100 + day;
+
+	date = day + month * 100 + year * 10000;
 	return date;
 }
 
