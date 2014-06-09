@@ -17,6 +17,11 @@ KData::KData()
 		this->k_1_mean = 0;
 		this->k_5_mean = 0;
 
+		this->k_index = new int[this->k_line_num];
+		for ( int i = 0; i < this->k_line_num; i++ ){
+			this->k_index[i] = 0;
+			}
+
 }
 
 KData::~KData()
@@ -127,6 +132,9 @@ void KData::ClearData()
 			}
 		}
 	}
+	for ( int i = 0; i < this->k_line_num; i++ ){
+		this->k_index[i] = 0;
+	}
 }
 
 //添加一个Tick数据
@@ -150,6 +158,7 @@ bool KData::AddData( std::string contract, int date, double *data )
 	for ( int i = 0; i < this->k_line_num; i++ ){
 		//对每种K线
 		int num = this->CalMinuteIndex( (int)(data[0]/100), this->k_gap[i] );
+		this->k_index[i] = num;
 		if ( this->k_data[0][i][num] == 0 ){	//如果是第一个Tick数据
 			this->k_data[0][i][num] = date;
 			this->k_data[1][i][num] = this->NearMinute( (int)(data[0]/100), this->k_gap[i] );
@@ -439,10 +448,31 @@ void KData::PrintData( std::string path, std::string contract, char* chTime )
 				<< this->k_data[13][i][j] << '\t'
 				<< (long long)this->k_data[14][i][j] << '\t'
 				<< contract.substr( contract.length() - 4, 4 ) << '\n';*/
+			int yy = (int)(this->k_data[0][i][j]) / 10000;
+			int mo = ((int)( this->k_data[0][i][j] / 100 )) % 100;
+			int dd = ((int)( this->k_data[0][i][j] )) % 100;
+			int hh = (int)(this->k_data[1][i][j]) / 100;
+			int mi = ((int) this->k_data[1][i][j]) % 100;
 			out << contract << '\t'
-				<< (int) this->k_data[0][i][j] << '\t'
-				<< (int) this->k_data[1][i][j] << '\t'
-				<< (int) this->k_data[0][i][j] << '\t'
+				<< yy << '-';
+			if (mo < 10){
+				out << 0;
+			}
+			out << mo << '-';
+			if (dd < 10){
+				out << 0;
+			}
+			out << dd << '\t';
+			if (hh < 10){
+				out << 0;
+			}
+			out << hh << ':';
+			if (mi < 10){
+				out << 0;
+			}
+			out << mi << ':';
+			out << 0 << 0 << '\t';
+			out << (int) this->k_data[0][i][j] << '\t'
 				<< (int) this->k_data[1][i][j] << '\t'
 				<< this->k_data[3][i][j] << '\t'
 				<< this->k_data[2][i][j] << '\t'
@@ -459,4 +489,47 @@ void KData::PrintData( std::string path, std::string contract, char* chTime )
 		}
 		out.close();
 	}
+}
+
+void KData::PrintLastData(std::ostream& out, std::string contract, int k)
+{
+	int index = this->k_index[k] - 1;
+	int yy = (int)(this->k_data[0][k][index]) / 10000;
+	int mo = ((int)( this->k_data[0][k][index] / 100 )) % 100;
+	int dd = ((int)( this->k_data[0][k][index] )) % 100;
+	int hh = (int)(this->k_data[1][k][index]) / 100;
+			int mi = ((int) this->k_data[1][k][index]) % 100;
+			out << contract << '\t'
+				<< yy << '-';
+			if (mo < 10){
+				out << 0;
+			}
+			out << mo << '-';
+			if (dd < 10){
+				out << 0;
+			}
+			out << dd << '\t';
+			if (hh < 10){
+				out << 0;
+			}
+			out << hh << ':';
+			if (mi < 10){
+				out << 0;
+			}
+			out << mi << ':';
+			out << 0 << 0 << '\t';
+			out << (int) this->k_data[0][k][index] << '\t'
+				<< (int) this->k_data[1][k][index] << '\t'
+				<< this->k_data[3][k][index] << '\t'
+				<< this->k_data[2][k][index] << '\t'
+				<< this->k_data[4][k][index] << '\t'
+				<< this->k_data[5][k][index] << '\t'
+				<< this->k_data[10][k][index] << '\t'
+				<< this->k_data[11][k][index] << '\t'
+				<< this->k_data[6][k][index] << '\t'
+				<< this->k_data[7][k][index] << '\t'
+				<< this->k_data[8][k][index] << '\t'
+				<< this->k_data[9][k][index] << '\t'
+				<< this->k_data[14][k][index] << '\n';
+
 }

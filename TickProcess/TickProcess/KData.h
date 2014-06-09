@@ -6,7 +6,8 @@
 #include <fstream>
 #include <windows.h>
 #include <sstream>   
-#include <algorithm>  
+#include <algorithm> 
+#include <map>
 
 
 class KData
@@ -21,6 +22,7 @@ class KData
 
 	double k_1_mean;		//过去10个1分钟K线收盘价均值
 	double k_5_mean;		//过去6个5分钟K线收盘价均值
+
 /*
 0	int **date;		//日期
 1	int **time;		//分钟
@@ -44,6 +46,8 @@ class KData
 public:
 	KData(void);
 	~KData(void);
+	
+	int *k_index;			//已有记录K线最大索引值
 
 	//设置交易时间段个数
 	void SetTransferPeriod( int n );
@@ -82,6 +86,8 @@ public:
 	//返回上一分钟时间值
 	int LastMinute( int minute );
 	void DeleteData();
+	//输出最新的一条可靠K线数据
+	void PrintLastData( std::ostream& out, std::string contract, int index);
 	
 };
 

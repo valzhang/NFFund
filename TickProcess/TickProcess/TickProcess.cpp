@@ -30,6 +30,9 @@ void ClearData( string path, int date );
 
 string GetReadPath( string path, string exchange, string contract, char* chTime );
 
+//查找date日期code期货的主力合约
+string GetMainContract( map<int, string>& mainMap, int date );
+
 //返回下一天
 int GetNextDate( int date );
 string Global_dataPath;
@@ -44,7 +47,7 @@ const int TIMESTART = 20100101;
 
 int main()
 {
-	clock_t start_time, stop_time;
+	
 	ifstream confIn( "path.conf" );
 	string dataPath;
 	getline( confIn, dataPath );
@@ -103,31 +106,16 @@ int main()
 	pData->SetKLine( 5, 15 );
 	pData->SetKLine( 6, 30 );
 
-	
+/*
+	pData->SetKLineNum( 1 );
+	pData->SetKLine( 1, -1 );
+*/
 	if ( !pData->GetReady() )//GetReady()检查pData的K线参数及交易时间段是否设置完整。
 	{
 		cout << "参数错误\n";
 		return -1;
 	}
 	
-	//从TickerMap文件中读入所有的期货代码,保存到futureCode数组内
-	string *futureCode = new string[43];
-	string *futureExchange = new string[43];
-
-	int futureNum;
-	futureNum = GetFutureCode( confPath, futureCode );
-
-	if(GetFutureExchange(confPath, futureExchange) != futureNum)
-	{
-		cout<< "期货交易代码和交易所不能对应\n"<<endl;
-		return -1;
-	}
-
-	//读入时间范围
-	int beginTime = 0;
-	int endTime = 0;
-	
-
 //	ReadTime( beginTime, endTime );
 	//取得今天日期today
 	time_t curtime=time(0); 
@@ -138,6 +126,57 @@ int main()
 	year=tim.tm_year;
 	int today = ( year + 1900 ) * 10000 + ( mon + 1) * 100 + day;
 	
+	//从TickerMap文件中读入所有的期货代码,保存到futureCode数组内
+	string *futureCode = new string[45];
+	string *futureExchange = new string[45];
+
+	int futureNum;
+	futureNum = GetFutureCode( confPath, futureCode );
+
+	if(GetFutureExchange(confPath, futureExchange) != futureNum)
+	{
+		cout<< "期货交易代码和交易所不能对应\n"<<endl;
+		return -1;
+	}
+
+	map<int, string> mainMap[50];
+	//读入主力合约信息
+	for ( int i = 0; i < futureNum; i++ ){
+
+		//打开roll文件
+		string mainPath = Global_confPath;
+		mainPath.append("rolls\\");
+		mainPath.append(futureCode[i]);
+		mainPath.append(".rolls");
+		ifstream inRolls;
+		inRolls.open(mainPath);
+		if (!inRolls){
+			cout << "rolls文件打开失败！\n";
+			continue;
+		}
+
+		string tmpData;
+		getline( inRolls, tmpData );
+		int last_date = 0;
+		string last_contract;
+		while (getline( inRolls, tmpData )){
+			int date = atoi(tmpData.substr( 0, 8 ).c_str());
+			string contract = tmpData.substr( 9, futureCode[i].length() + 4 );
+			if ( last_date != 0 ){
+				mainMap[i].insert(make_pair( date, last_contract ));
+			}//if
+			last_date = date;
+			last_contract = contract;
+		}//while
+		mainMap[i].insert(make_pair( GetNextDate(today), last_contract ));
+
+	}//for
+
+	//读入时间范围
+	int beginTime = 0;
+	int endTime = 0;
+	
+
 	//读取fininshdate.txt文件
 	string datePath = Global_outPath;
 	datePath.append( "finishdate.txt" );
@@ -157,7 +196,7 @@ int main()
 		cout << "是否删除" << finishDate << "日期之后的数据?(Y/N)" << endl;
 		string delStr;
 		cin >> delStr;
-		if ( delStr.compare("Y") || ( delStr.compare("y") ) ){
+		if ( delStr.compare("Y") == 0 || ( delStr.compare("y") == 0 ) ){
 			string tmpStr = Global_outPath;
 			tmpStr.append( Global_main );
 			ClearData( tmpStr, finishDate );
@@ -200,7 +239,11 @@ int main()
 			endTime = finishDate;
 			//处理数据
 				for ( int i = 0; i < futureNum; i++ ){
-					if ( futureCode[i].compare("IF") ){
+					//debug
+	//				if (futureCode[i].compare("ZN") != 0){
+	//					continue;
+	//				}
+					if ( futureCode[i].compare("IF") == 0 ){
 						pData->SetTransferPeriod( 2 );
 						pData->SetTransferTime( 1, 915, 1130 );
 						pData->SetTransferTime( 2, 1300, 1515 );
@@ -332,7 +375,7 @@ int main()
 	memset( tickTag, 0, sizeof(int)*50 );
 	KData *tickData[50];
 	for ( int i = 0; i < futureNum; i++ ){
-		if ( futureCode[i].compare("IF") ){
+		if ( futureCode[i].compare("IF") == 0 ){
 			tickData[i] = new KData();
 			tickData[i]->SetTransferPeriod( 2 );
 			tickData[i]->SetTransferTime( 1, 915, 1130 );
@@ -357,10 +400,20 @@ int main()
 	
 	char chToday[9];
 	itoa( today, chToday, 10 );
+
+	//计算保存今天的主力合约
+	string todayMain[50];
+	for ( int i = 0; i < futureNum; i++ ){
+		todayMain[i] = GetMainContract( mainMap[i], today );
+	}//for
+	//记录上次主力合约输出位置
+	int lastMainTime[50][7];
+	memset( lastMainTime, 0, sizeof(lastMainTime) );
+
 	while ( finishDate == today ){
 		//记下当前时间curTime
 		lastTime = clock();
-
+		cout << "Today Loop Time\n";
 		//对于每一种合约，读取相应的Tick文件，处理到K线文件中
 		for ( int i = 0; i < futureNum; i++ ){
 			//获取Tick文件路径
@@ -387,13 +440,54 @@ int main()
 					inToday >> oneData[j];
 				}
 				tickData[i]->AddData( todayContract[i], today, oneData );
+				//cout << "Add Data";
+		//		cout << "读取一条Tick数据成功！\n";
 				tickTag[i]++;
 			}//while ( !inToday.eof() ){
 			//
 			tmp = Global_outPath;
 			tickData[i]	->PrintData( tmp.append( Global_pro_data ) , todayContract[i], chToday );
+			//cout << "\nPrint Data\n";
+			//判断当前contract是否为主力合约
+			cout << todayContract[i] << ' ' << todayMain[i] <<endl;
+			transform( todayContract[i].begin(), todayContract[i].end(), todayContract[i].begin(), toupper );	
+			transform( todayMain[i].begin(), todayMain[i].end(), todayMain[i].begin(), toupper );	
+			if ( todayContract[i].compare(todayMain[i]) == 0 ){
+			//若是主力合约，则补充K线数据到main文件末尾
+			//todo 
+				cout << "MainContract\n";
+				for ( int j = 1; j < tickData[i]->GetLineNum(); j++ ){	//对于每种K线
+					if ( lastMainTime[i][j] + tickData[i]->GetKLine(j) <= (int)(oneData[0]/100) ){		//若上次输出到当前Tick数据时间比main文件的时间+K线间隔时间要打
+						//将最新一条K线记录输出到main文件
+						cout << "OutMain\n";
+						string mainContractPath = Global_outPath;
+						mainContractPath.append("main\\");
+						mainContractPath.append(futureCode[i]);
+						mainContractPath.append("_");
+						if ( tickData[i]->GetKLine(j) < 0 ){
+							mainContractPath.append("day.txt");
+						}else{
+							char chK[3];
+							itoa( tickData[i]->GetKLine(j), chK, 10 );
+							mainContractPath.append(chK);
+							mainContractPath.append(".txt");
+						}//if
+						ofstream mainContractOut;
+						mainContractOut.open( mainContractPath, ios::app );
+					
+						if ( tickData[i]->k_index[j] > 0 ){
+							tickData[i]->PrintLastData( mainContractOut, todayContract[i], j );
+							cout << "更新main文件成功！\n";
+						}//if
+						mainContractOut.close();
+						//更新最新记录K线
+						lastMainTime[i][j] = (int)( oneData[0] / 100 );
+					}//if
+				}//for
+			}//if
+
 		}//for ( int i = 0; i < todayNum; i++ )
-		while ( clock() - lastTime < 20000 ){
+		while ( clock() - lastTime < 5000 ){
 			Sleep(5000);
 		}
 		//sleep直到curTime+20s
@@ -401,7 +495,6 @@ int main()
 	
 
 		pData->DeleteData();
-	dateOut.close();
 
 	dataLog.close();
 	tickLog.close();
@@ -462,14 +555,14 @@ int GetFutureCode( string path, string *code )
 {
 	ifstream in;
 	string codePath = path;
-	codePath.append( "Tickermap" );
+	codePath.append( "TickerMap" );
 	in.open( codePath );
 	string tmp;
 	getline( in, tmp );
 	int index = 0;
 	while ( getline (in, tmp) ){
 		code[index] = tmp.substr( 0, tmp.find( '|', 0 ) );
-		index++;
+ 		index++;
 	}
 	in.close();
 	return index;
@@ -479,7 +572,7 @@ int GetFutureExchange(string path, string* exchange)
 {
 	ifstream in;
 	string codePath = path;
-	codePath.append( "Tickermap" );
+	codePath.append( "TickerMap" );
 	in.open( codePath );
 	string tmp;
 	getline( in, tmp );
@@ -914,7 +1007,8 @@ void ClearData( string path, int endDate )
 			fileOut.open( fileTmpStr );
 			string dataStr;
 			while ( getline( fileIn, dataStr ) ){
-				int date = atoi( dataStr.substr( 0, 8 ).c_str() );
+				int date = atoi( dataStr.substr( filePath.length() + 5, 9 ).c_str() );
+
 				if ( date >= endDate ){
 					break;
 				}
@@ -934,4 +1028,9 @@ void ClearData( string path, int endDate )
 		}
 	}
 	FindClose( hFind );
+}
+
+string GetMainContract( map<int, string>& mainMap, int date )
+{
+	return mainMap.upper_bound(date)->second;
 }
