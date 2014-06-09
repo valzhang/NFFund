@@ -42,6 +42,8 @@ string Global_log="log\\";
 string Global_pro_data = "pro_data\\";
 string Global_contract = "contract\\";
 string Global_main = "main\\";
+//期货品种数目
+const int CONTRACT_NUM = 50;
 
 const int TIMESTART = 20100101;
 
@@ -127,8 +129,8 @@ int main()
 	int today = ( year + 1900 ) * 10000 + ( mon + 1) * 100 + day;
 	
 	//从TickerMap文件中读入所有的期货代码,保存到futureCode数组内
-	string *futureCode = new string[45];
-	string *futureExchange = new string[45];
+	string *futureCode = new string[CONTRACT_NUM];
+	string *futureExchange = new string[CONTRACT_NUM];
 
 	int futureNum;
 	futureNum = GetFutureCode( confPath, futureCode );
@@ -139,7 +141,7 @@ int main()
 		return -1;
 	}
 
-	map<int, string> mainMap[50];
+	map<int, string> mainMap[CONTRACT_NUM];
 	//读入主力合约信息
 	for ( int i = 0; i < futureNum; i++ ){
 
@@ -326,7 +328,7 @@ int main()
 			dataLog << "===============" << finishDate << "===============\n";
 			tickLog << "===============" << finishDate << "===============\n";
 	}
-	string todayContract[60];
+	string todayContract[CONTRACT_NUM];
 
 	//读取今天交易的所有合约，并保存到数组todayContract中，记录今天交易的所有交易合约种类个数到todayNum中
 /*	for ( int i = 0; i < futureNum; i++ ){
@@ -371,9 +373,9 @@ int main()
 	}//for ( int i = 0; i < futureNum; i++ )
 
 	clock_t lastTime;
-	int tickTag[50];
-	memset( tickTag, 0, sizeof(int)*50 );
-	KData *tickData[50];
+	int tickTag[CONTRACT_NUM];
+	memset( tickTag, 0, sizeof(int)*CONTRACT_NUM );
+	KData *tickData[CONTRACT_NUM];
 	for ( int i = 0; i < futureNum; i++ ){
 		if ( futureCode[i].compare("IF") == 0 ){
 			tickData[i] = new KData();
@@ -402,12 +404,12 @@ int main()
 	itoa( today, chToday, 10 );
 
 	//计算保存今天的主力合约
-	string todayMain[50];
+	string todayMain[CONTRACT_NUM];
 	for ( int i = 0; i < futureNum; i++ ){
 		todayMain[i] = GetMainContract( mainMap[i], today );
 	}//for
 	//记录上次主力合约输出位置
-	int lastMainTime[50][7];
+	int lastMainTime[CONTRACT_NUM][7];
 	memset( lastMainTime, 0, sizeof(lastMainTime) );
 
 	while ( finishDate == today ){
